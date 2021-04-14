@@ -14,7 +14,7 @@ public class Host {
         this.hardwareCost = hardwareCost;
         this.dailyCost = dailyCost;
     }
-
+    
     public boolean isFit(VirtualMachine virtualMachine) {
         return virtualMachine.getDeploymentMode() == 1? virtualMachine.getMemorySize() / 2 <= memorySize / 2 &&
                 virtualMachine.getCoreNums() / 2 <= coreNums / 2: virtualMachine.getMemorySize() <= memorySize / 2 &&
@@ -60,4 +60,5 @@ public class Host {
     public void setDailyCost(int dailyCost) {
         this.dailyCost = dailyCost;
     }
+
 }

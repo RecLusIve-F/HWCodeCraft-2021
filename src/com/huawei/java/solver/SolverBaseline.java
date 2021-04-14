@@ -1,10 +1,11 @@
-package com.huawei.java.main;
+package com.huawei.java.solver;
 
+import com.huawei.java.main.IOUtils;
 import com.huawei.java.pojo.*;
 
 import java.util.*;
 
-public class Solver {
+public class SolverBaseline {
     private long hardwareCost;
     private long dailyCost;
 
@@ -20,7 +21,7 @@ public class Solver {
     private final boolean isTest;
     private final boolean isCheckServer;
 
-    public Solver (IOUtils ioUtils, int totalDay, boolean isTest, boolean isCheckServer) {
+    public SolverBaseline(IOUtils ioUtils, int totalDay, boolean isTest, boolean isCheckServer) {
         this.ioUtils = ioUtils;
         this.totalDay = totalDay;
         this.isTest = isTest;
@@ -47,24 +48,20 @@ public class Solver {
         int previousDayServerNums = activatedServers.size();
         for (Request request: requests) {
             if (request.getOperand().equals("add")) {
-                sortedRequests.add(request);
+                Label:
+                while (true) {
+                    for (Server server: activatedServers) {
+                        String deploymentMode = fitServer(request, server);
+                        if (!deploymentMode.equals("False")) {
+                            server.getVirtualMachineIDs().add(request.getVirtualMachineID());
+                            requestMap.put(request.getVirtualMachineID(), new Pair<>(server.getID(), deploymentMode));
+                            virtualMachineNums++;
+                            break Label;
+                        }
+                    }
+                    orderHost(ioUtils.getVirtualMachineMap().get(request.getVirtualMachineName()));
+                }
             } else {
-                // 降序排序
-                sortedRequests.sort((request1, request2) -> {
-                    VirtualMachine virtualMachine1 = ioUtils.getVirtualMachineMap().get(request1.getVirtualMachineName());
-                    VirtualMachine virtualMachine2 = ioUtils.getVirtualMachineMap().get(request2.getVirtualMachineName());
-                    Integer request1Score = virtualMachine1.getCoreNums() + virtualMachine1.getMemorySize();
-                    Integer request2Score = virtualMachine2.getCoreNums() + virtualMachine2.getMemorySize();
-//                    int request1DeploymentMode = virtualMachine1.getDeploymentMode();
-//                    int request2DeploymentMode = virtualMachine2.getDeploymentMode();
-//                    if (request1DeploymentMode > request2DeploymentMode)
-//                        return 1;
-//                    else if (request1DeploymentMode < request2DeploymentMode)
-//                        return -1;
-//                    else
-                      return -request1Score.compareTo(request2Score);
-                });
-                handleSortedRequests();
                 Pair<Integer, String> pair = requestMap.get(request.getVirtualMachineID());
                 Server server = activatedServers.get(pair.getE1());
                 VirtualMachine virtualMachine = ioUtils.getVirtualMachineMap().get(request.getVirtualMachineName());
@@ -88,9 +85,6 @@ public class Solver {
                 requestMap.remove(request.getVirtualMachineID());
             }
         }
-
-        if (!sortedRequests.isEmpty())
-            handleSortedRequests();
 
         int currentServerNums = activatedServers.size();
         int currentID = previousDayServerNums;
@@ -181,15 +175,15 @@ public class Solver {
     }
 
     private void orderHost(VirtualMachine virtualMachine) {
-        Map<Host, Double> resultMap = sortByValue(hostWeightMap);
-        Host host = null;
-        for (Host host1: resultMap.keySet()) {
-            if (host1.isFit(virtualMachine)) {
-                host = host1;
-                break;
-            }
-        }
-//        Host host = ioUtils.getHosts().get(13);
+//        Map<Host, Double> resultMap = sortByValue(hostWeightMap);
+//        Host host = null;
+//        for (Host host1: resultMap.keySet()) {
+//            if (host1.isFit(virtualMachine)) {
+//                host = host1;
+//                break;
+//            }
+//        }
+        Host host = ioUtils.getHosts().get(13);
         assert host != null;
         hostOrders.put(host.getName(), hostOrders.getOrDefault(host.getName(), 0) + 1);
 
@@ -197,7 +191,7 @@ public class Solver {
     }
 
     public String fitServer(Request request, Server server) {
-        VirtualMachine virtualMachine = ioUtils.getVirtualMachineMap().get(request.getVirtualMachineName());
+        VirtualMachine virtualMachine = ioUtils.getVirtualMachineMap().get(ioUtils.getVirtualMachineIDMap().get(request.getVirtualMachineID()));
         int coreNums = virtualMachine.getCoreNums();
         int memorySize = virtualMachine.getMemorySize();
         Pair<Integer, Integer> nodeA = server.getNodeA();
@@ -233,7 +227,7 @@ public class Solver {
 
     private double getHostWeight(Host host) {
         return host.getCoreNums() * 0.75 + host.getMemorySize() * 0.22 + host.getHardwareCost() * 0.01 +
-                host.getDailyCost() * (totalDay - currentDay) * 0.02;
+                host.getDailyCost() * (totalDay - currentDay) * 0.01;
     }
 
     private void updateHostWeight() {
@@ -246,5 +240,4 @@ public class Solver {
         map.entrySet().stream().sorted(Map.Entry.comparingByValue()).forEachOrdered(e -> result.put(e.getKey(), e.getValue()));
         return result;
     }
-
 }
